@@ -99,11 +99,34 @@ internet, the map falls back to a plain background and still shows every zone. T
 To change the interface, run `npm install && npm run build` in `app/web/`. A simpler Streamlit fallback
 is in `app/streamlit_app.py`.
 
+### Deploy the dashboard to Vercel
+
+The web app in `app/web/` deploys to Vercel as a standard Next.js project. On Vercel, its own route
+handlers answer the same `/api/...` routes from `app/web/data/*.json`. These files are the FastAPI app's
+responses for every zone and day, pre-computed by `python app/export_static_api.py`. The Python model
+libraries (about 285 MB) exceed Vercel's 250 MB function limit, so the model runs at build time instead
+of on each request. The forecast inputs for 1–14 November are fixed, so the answers are identical.
+
+1. On Vercel, choose **Add New → Project** and import `EleniAndualem/hackathon`.
+2. Set **Root Directory** to `app/web`. The framework (Next.js) is detected automatically, and
+   `app/web/vercel.json` sets the install and build commands.
+3. Under **Environment Variables**, add these (see `app/web/.env.example`):
+
+   | Name | Value | Needed? |
+   |---|---|---|
+   | `CARTO_API_KEY` | your CARTO key | Optional: used only by the server-side `/api/basemap` tile route |
+   | `NEXT_PUBLIC_API_BASE` | URL of a hosted FastAPI server | Leave empty to use the built-in `/api` routes |
+
+4. Click **Deploy**, then check `https://<your-app>.vercel.app/api/health`.
+
+After retraining the model, run `python -m src.app_assets && python app/export_static_api.py` and commit
+`app/web/data/` so Vercel serves the new forecasts.
+
 ---
 
 ## Reproduce the results
 
-Run the notebooks **in order**; each one writes what the next one reads. Then run the two scripts.
+Run the notebooks **in order**; each one writes what the next one reads. Then run the three scripts.
 
 | # | Step | Produces | Time |
 |---|---|---|---|
@@ -113,13 +136,14 @@ Run the notebooks **in order**; each one writes what the next one reads. Then ru
 | 4 | [`04_modeling_and_evaluation.ipynb`](notebooks/04_modeling_and_evaluation.ipynb) | **D**: baselines, models, validation, ablation, tuning, error analysis, figures 10–12, final model | 20 min |
 | 5 | `python -m src.predict` | Submission file, prediction intervals | < 1 min |
 | 6 | `python -m src.app_assets` | Lookup tables for the demo | < 1 min |
+| 7 | `python app/export_static_api.py` | Pre-computed API responses for the Vercel deployment | < 1 min |
 
 ```bash
 cd notebooks
 for nb in 01_cleaning_and_integration 02_analysis_report 03_visualizations 04_modeling_and_evaluation; do
   jupyter nbconvert --to notebook --execute --inplace "$nb.ipynb"
 done
-cd .. && python -m src.predict && python -m src.app_assets
+cd .. && python -m src.predict && python -m src.app_assets && python app/export_static_api.py
 ```
 
 Every number, table and figure is produced by this code. Paths are relative and `random_state = 42`.
