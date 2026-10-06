@@ -1,33 +1,38 @@
-# Addis Ababa Ride Demand Forecasting
+<div align="center">
 
-**Team teamdev · Qiyas AI Hackathon #2 · Qiyas / IADE AI Training Program, Addis Ababa University**
+# 🚕 Addis Ababa Ride Demand Forecasting
 
-Hourly ride-hailing demand forecasts for 12 Addis Ababa zones over 1–14 November 2025, built from trip
-history, hourly weather and a city events calendar.
+**Hourly trip forecasts for 12 Addis Ababa zones, 1–14 November 2025**
 
-| | |
-|---|---|
-| **Validation RMSE** | **8.09** trips per zone-hour (18–31 Oct 2025, held out) |
-| **Validation MAE** | **5.60** trips per zone-hour |
-| **Rolling-origin RMSE** | **8.68 ± 0.80** over 5 folds of 14 days |
-| **Best baseline** | 9.94 RMSE (seasonal naive, last 4 weeks) — the final model is 19% better |
-| **Final model** | LightGBM, Poisson objective, 36 forecast-time features |
-| **Demo** | Runs locally: `python app/app.py`, then open <http://localhost:8000> (see [Demo](#demo)) |
+Team **teamdev** · Qiyas AI Hackathon #2 · IADE AI Training Program, Addis Ababa University
+
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![LightGBM](https://img.shields.io/badge/Model-LightGBM%20(Poisson)-0D7D81)
+![RMSE](https://img.shields.io/badge/Validation%20RMSE-8.09-2BD4A4)
+![Baseline](https://img.shields.io/badge/vs%20baseline-19%25%20better-EB6834)
+![Demo](https://img.shields.io/badge/Demo-FastAPI%20%2B%20Next.js-111827)
+
+</div>
 
 ---
 
-## Contents
+## Overview
 
-1. [Team](#team)
-2. [Summary](#summary)
-3. [Results](#results)
-4. [Getting started](#getting-started)
-5. [Reproducing the results](#reproducing-the-results)
-6. [Demo](#demo)
-7. [Repository structure](#repository-structure)
-8. [Deliverables](#deliverables)
-9. [Methodology](#methodology)
-10. [Compliance with the hackathon rules](#compliance-with-the-hackathon-rules)
+Ride demand in Addis Ababa swings by zone, hour, weather and events, and operators must place drivers
+before it arrives. We turned three messy exports (ten months of hourly trips, hourly weather and an
+events calendar) into one clean zone-hour table, fixing 28 documented data problems on the way. The
+biggest one was a weather clock stored in UTC rather than Addis time, which hid the rain effect until
+we corrected it. A tuned **LightGBM** model trained only on forecast-time features predicts the
+**4,032 zone-hours** of 1–14 November. It reaches a validation **RMSE of 8.09**, 19% better than the
+best simple baseline, which is about four drivers off per zone-hour. Every forecast also comes with a
+calibrated 80% and 90% range, and a local web app turns the forecasts into a driver plan.
+
+| Metric | Score |
+|---|---|
+| Validation RMSE / MAE (18–31 Oct 2025, held out) | **8.09** / **5.60** trips per zone-hour |
+| Rolling-origin RMSE (5 × 14-day folds) | **8.68 ± 0.80** |
+| Best baseline (seasonal naive, last 4 weeks) | 9.94 |
+| 80% / 90% interval coverage | 79.8% / 89.6% |
 
 ---
 
@@ -44,261 +49,174 @@ history, hourly weather and a city events calendar.
 
 ---
 
-## Summary
+## Quick start
 
-We combined three raw exports — ten months of hourly trips per zone, an hourly weather table and an
-events calendar — into a single hourly zone grid, fixing 28 documented data problems along the way. These
-include a Fahrenheit block in the weather data, `-9999` rain sentinels, 125 trip records exported at eight
-times their true value, and duplicate, inverted and inconsistently spelled event rows.
-
-The most important finding came before any join: the weather export is on **UTC**, while the trips are
-on Addis Ababa time (EAT, UTC+3). We proved this from the data. The first forecast row is stamped 21:00
-on 31 October, which is midnight on 1 November in Addis, and shifting the weather clock by +3 hours
-raises the rain-to-demand correlation from 0.02 to 0.27.
-
-On the joined data, rain lifts demand by up to 63% in every zone type except the open-air Merkato
-market, where it falls by 42%. Events move demand in distinct waves: football demand reaches 1.8× an hour
-before kick-off and 2.5× right after the final whistle. The model therefore uses rain with a zone-type
-interaction, and event features split into before, during and after phases.
-
-The final LightGBM model scores an RMSE of 8.09 on a held-out fortnight. That is about 5.6 trips — roughly
-four drivers — off per zone-hour, against an average demand of 33 trips.
-
----
-
-## Results
-
-All scores are on chronological splits of the training file; the test file is never scored. Full
-results are in [`reports/D_model_evaluation.md`](reports/D_model_evaluation.md).
-
-| Model | RMSE (18–31 Oct) | MAE | Rolling-origin RMSE (5 folds) |
-|---|---:|---:|---:|
-| Mean predictor (baseline) | 27.53 | 20.69 | — |
-| Moving average, last 7 days (baseline) | 14.55 | 9.49 | 15.09 |
-| Seasonal naive, last 4 weeks (baseline) | 9.94 | 6.64 | 11.48 |
-| Ridge regression | 12.99 | 7.80 | 13.95 |
-| ARIMA, one per zone | 10.41 | 6.86 | 11.52 |
-| Random forest | 8.79 | 5.97 | 9.60 |
-| Gradient boosting (scikit-learn) | 8.63 | 5.92 | 9.16 |
-| HistGradientBoosting | 8.20 | 5.65 | 8.99 |
-| **LightGBM, tuned + holiday-eve feature (final)** | **8.09** | **5.60** | **8.68** |
-
-**What each data source adds.** Rolling-origin ablation of the final model type: adding weather lowers
-RMSE by 0.88 (−8.9%), adding events by 0.35 (−3.5%), and both together by 1.16 (−11.7%).
-
-**Uncertainty (stretch goal).** Every forecast hour comes with an 80% and a 90% prediction interval. When
-calibrated on 4–17 October and tested on 18–31 October, they covered 79.8% and 89.6% of actual hours. See
-[`reports/D_stretch_uncertainty.md`](reports/D_stretch_uncertainty.md).
-
----
-
-## Getting started
-
-**Requirements:** Python 3.10 or newer (developed and tested on Python 3.13).
+Requires **Python 3.10+** (developed on 3.13). All versions are pinned in [`requirements.txt`](requirements.txt).
 
 ```bash
 git clone https://github.com/EleniAndualem/hackathon.git
 cd hackathon
-
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+
+python app/app.py                                     # demo → http://localhost:8000
 ```
-
-All package versions are pinned in [`requirements.txt`](requirements.txt).
-
----
-
-## Reproducing the results
-
-Run the four notebooks in order, then the two scripts. Each step writes the inputs the next step reads,
-so the order matters.
-
-```bash
-cd notebooks
-jupyter nbconvert --to notebook --execute --inplace 01_cleaning_and_integration.ipynb
-jupyter nbconvert --to notebook --execute --inplace 02_analysis_report.ipynb
-jupyter nbconvert --to notebook --execute --inplace 03_visualizations.ipynb
-jupyter nbconvert --to notebook --execute --inplace 04_modeling_and_evaluation.ipynb
-cd ..
-
-python -m src.predict        # writes the submission file and the prediction intervals
-python -m src.app_assets     # refreshes the lookup tables bundled with the demo app
-```
-
-| Step | Produces | Approx. time |
-|---|---|---|
-| `01_cleaning_and_integration.ipynb` | Deliverable A: cleaning log, timezone proof, join map and audit, join proof, feature table, 18 integrity checks, master tables and data dictionary | 2 min |
-| `02_analysis_report.ipynb` | Deliverable B: all 14 analysis tasks | 2 min |
-| `03_visualizations.ipynb` | Deliverable C: figures 1–9 and their captions | 1 min |
-| `04_modeling_and_evaluation.ipynb` | Deliverable D: baselines, model comparison, rolling-origin validation, leakage audit, ablation, tuning, error analysis, figures 10–12, and the final model | 20 min |
-| `python -m src.predict` | Submission file, prediction intervals, uncertainty report | < 1 min |
-| `python -m src.app_assets` | Lookup tables in `app/assets/` | < 1 min |
-
-Every number, table and figure in this repository is produced by this code. All paths are relative to
-the repository root, and `random_state` is fixed at 42 throughout.
 
 ---
 
 ## Demo
 
-The demo runs locally with one command from the repository root:
+<p align="center"><img src="docs/demo_screenshot.png" alt="Demo app: live zone map, forecast and driver plan" width="900"></p>
 
-```bash
-python app/app.py
-```
+**Run it locally with one command:** `python app/app.py`, then open <http://localhost:8000>. There is no
+hosted URL; the demo runs live from a laptop.
 
-Then open <http://localhost:8000>. There is no hosted URL; the demo is run live from a laptop, as the
-instructions allow.
+- **Input:** a zone and a date between 1 and 14 November 2025. Weather and events are looked up
+  automatically from `app/assets/`.
+- **Output:**
+  - a 24-hour forecast curve with its 80% range, the zone's usual day, and shaded event windows;
+  - the peak hour;
+  - drivers needed (trips ÷ 1.3 per driver-hour) and gross fares;
+  - an hourly table you can export as CSV.
+- **City view:** a live map of all 12 zones, an hour slider, and a ranking of the zones for the day.
+- **Out-of-range dates** get a friendly message instead of an error.
+- **Deep link:** `http://localhost:8000/?zone=Kazanchis&date=2025-11-09` opens that zone and day.
 
-**How it is built.** `app/app.py` is a small FastAPI service. At start-up it loads the saved model and the
-bundled tables in `app/assets/`, scores the 4,032 forecast zone-hours, and serves a JSON API
-(`/api/meta`, `/api/city?date=`, `/api/forecast?zone=&date=`) together with the web interface. The
-interface is a Next.js + React app (Tailwind CSS, MapLibre map, Recharts charts) whose compiled static
-build is committed in `app/web/out/`, so **running the demo needs Python only, not Node.js**.
-
-**Inputs.** A zone and a date between 1 and 14 November 2025 — nothing else. Zones can be picked from the
-list, from the city map or from the zone leaderboard.
-
-**What the app does.** It looks up the weather forecast and any events for that zone and day from the
-cleaned tables in `app/assets/`, so the user never types in weather or event information. It then shows:
-
-- a live map of Addis Ababa with all 12 zones as bubbles sized by demand, and an hour slider that can
-  play the day forward;
-- the 24-hour forecast as a curve, with the 80% range shaded, the zone's usual day for comparison and
-  event windows shaded, plus the full hourly table (downloadable as CSV);
-- the peak hour;
-- the drivers needed each hour (forecast trips ÷ 1.3 trips per driver-hour), with a safe staffing level
-  at the top of the 80% range and a summary by shift;
-- the expected gross fares (forecast trips × the zone's average fare from the history);
-- a summary of what was looked up, for example *"9–24 °C · No rain forecast · Road race at Meskel
-  Square 06:00–11:00 · Football match at Addis Ababa Stadium 15:00–17:00"*;
-- a ranking of all 12 zones for the day, compared with their usual day of the week.
-
-Dates outside 1–14 November get a friendly message instead of an error. A link such as
-`http://localhost:8000/?zone=Kazanchis&date=2025-11-09` opens the app on that zone and day.
-
-**Changing the interface (optional).** With Node.js 20+ installed:
-
-```bash
-cd app/web
-npm install
-npm run dev      # live-reloading interface at http://localhost:3000 (keep python app/app.py running)
-npm run build    # rebuilds app/web/out, which app/app.py serves
-```
-
-**Streamlit version.** A simpler Streamlit version of the same demo is kept as a fallback:
-`streamlit run app/streamlit_app.py`.
+The app is a FastAPI service (`app/app.py`) that serves the model through a JSON API and a Next.js
+interface. The interface's compiled build is committed in `app/web/out/`, so you need **Python only**.
+To change the interface, run `npm install && npm run build` in `app/web/`. A simpler Streamlit fallback
+is in `app/streamlit_app.py`.
 
 ---
 
-## Repository structure
+## Reproduce the results
 
+Run the notebooks **in order**; each one writes what the next one reads. Then run the two scripts.
+
+| # | Step | Produces | Time |
+|---|---|---|---|
+| 1 | [`01_cleaning_and_integration.ipynb`](notebooks/01_cleaning_and_integration.ipynb) | **A**: cleaning log, timezone proof, joins, integrity checks, master tables | 2 min |
+| 2 | [`02_analysis_report.ipynb`](notebooks/02_analysis_report.ipynb) | **B**: the 14 analysis tasks and a feature correlation matrix | 2 min |
+| 3 | [`03_visualizations.ipynb`](notebooks/03_visualizations.ipynb) | **C**: figures 1–9 and captions | 1 min |
+| 4 | [`04_modeling_and_evaluation.ipynb`](notebooks/04_modeling_and_evaluation.ipynb) | **D**: baselines, models, validation, ablation, tuning, error analysis, figures 10–12, final model | 20 min |
+| 5 | `python -m src.predict` | Submission file, prediction intervals | < 1 min |
+| 6 | `python -m src.app_assets` | Lookup tables for the demo | < 1 min |
+
+```bash
+cd notebooks
+for nb in 01_cleaning_and_integration 02_analysis_report 03_visualizations 04_modeling_and_evaluation; do
+  jupyter nbconvert --to notebook --execute --inplace "$nb.ipynb"
+done
+cd .. && python -m src.predict && python -m src.app_assets
 ```
-hackathon/
-├── README.md
-├── requirements.txt                    pinned package versions
-├── submission/
-│   ├── team_teamdev_submission.csv     the scored file (row_id, predicted_trips)
-│   └── team_teamdev_prediction_intervals.csv
-├── data/
-│   ├── raw/                            the five original CSVs, never edited
-│   └── processed/
-│       ├── master_train.csv
-│       ├── master_test.csv
-│       ├── data_dictionary_master.csv
-│       └── weather_clean.csv, events_clean.csv, zone_types.csv
-├── notebooks/
-│   ├── 01_cleaning_and_integration.ipynb
-│   ├── 02_analysis_report.ipynb
-│   ├── 03_visualizations.ipynb
-│   └── 04_modeling_and_evaluation.ipynb
-├── src/
-│   ├── cleaning.py                     parsing, standardisation, cleaning of all three tables
-│   ├── features.py                     joins, feature engineering, integrity checks
-│   ├── train.py                        baselines, models, fold-safe validation
-│   ├── predict.py                      submission file and prediction intervals
-│   ├── app_assets.py                   builds the demo's lookup tables
-│   └── config.py, analysis.py, dictionary.py, plotstyle.py, nbtools.py
-├── models/
-│   ├── final_model.joblib              trained model, feature list and validation scores
-│   └── final_model_params.json
-├── figures/
-│   ├── fig01_gaps_and_missingness.png … fig12_feature_importance.png
-│   └── figure_captions.md
-├── reports/
-│   ├── A_cleaning_and_integration.md   (+ A1_cleaning_log.csv, a3_join_map.png)
-│   ├── B_analysis_report.md            (+ b_correlation_matrix.png)
-│   ├── D_model_evaluation.md           (+ D_permutation_importance.csv, d7_confusion_matrix.png)
-│   └── D_stretch_uncertainty.md
-├── app/
-│   ├── app.py                          FastAPI service: forecast API + serves the web interface
-│   ├── streamlit_app.py                Streamlit fallback version of the demo
-│   ├── requirements.txt
-│   ├── assets/                         cleaned weather, events, zone fares, typical profiles, model
-│   └── web/                            Next.js interface (source in app/, components/, lib/; build in out/)
-└── presentation/
-    └── team_teamdev_slides.pptx
-```
+
+Every number, table and figure is produced by this code. Paths are relative and `random_state = 42`.
+
+---
+
+## Results
+
+| Model | RMSE | MAE | Rolling RMSE |
+|---|---:|---:|---:|
+| Mean predictor *(baseline)* | 27.53 | 20.69 | — |
+| Moving average, 7 days *(baseline)* | 14.55 | 9.49 | 15.09 |
+| Seasonal naive, 4 weeks *(baseline)* | 9.94 | 6.64 | 11.48 |
+| Ridge regression | 12.99 | 7.80 | 13.95 |
+| ARIMA, per zone | 10.41 | 6.86 | 11.52 |
+| Random forest | 8.79 | 5.97 | 9.60 |
+| Gradient boosting (scikit-learn) | 8.63 | 5.92 | 9.16 |
+| HistGradientBoosting | 8.20 | 5.65 | 8.99 |
+| **LightGBM, tuned + holiday-eve feature (final)** | **8.09** | **5.60** | **8.68** |
+
+RMSE and MAE are on 18–31 Oct; rolling RMSE is the mean over 5 folds. The test file is never scored.
+
+**Key findings**
+
+- 🕒 **Weather was on UTC.** Shifting it +3 h to Addis time raised the rain–demand correlation from
+  0.02 to 0.27.
+- 🌧️ **Rain raises demand** by up to 64% in heavy rain, except at the open-air Merkato market, where
+  demand falls 42%.
+- ⚽ **Football matches** lift demand 1.8× before kick-off and 2.3× in the two hours after.
+- 📈 **Demand grew about 40%** from January to October, so recent-level features matter.
+- 🧩 **Weather and events pay off.** Together they cut rolling RMSE by 11.7% (weather −8.9%, events −3.5%).
+- ⚠️ **Holiday eves cause the biggest misses.** 9 of the 10 largest errors fall on them, which
+  motivated the holiday-eve feature.
 
 ---
 
 ## Deliverables
 
-| Deliverable | Contents | Location |
+| | Deliverable | Where |
 |---|---|---|
-| **Prediction file** | 4,032 forecasts in the original row order | [`submission/team_teamdev_submission.csv`](submission/team_teamdev_submission.csv) |
-| **A — Cleaning & integration** | A1–A8: cleaning log, key and time standardisation with the timezone proof, join map, join audit, join proof, feature table, integrity checks, master tables | [`reports/A_cleaning_and_integration.md`](reports/A_cleaning_and_integration.md), [`notebooks/01_…`](notebooks/01_cleaning_and_integration.ipynb), [`data/processed/`](data/processed) |
-| **B — Data analysis** | B1.1–B4.3: all 14 tasks, each with a result and an interpretation, plus a feature correlation matrix | [`reports/B_analysis_report.md`](reports/B_analysis_report.md), [`notebooks/02_…`](notebooks/02_analysis_report.ipynb) |
-| **C — Visualisation pack** | 12 figures (150 dpi, colourblind-safe palette) with captions | [`figures/`](figures), [`figures/figure_captions.md`](figures/figure_captions.md), [`notebooks/03_…`](notebooks/03_visualizations.ipynb) |
-| **D — Modelling & evaluation** | D1–D9: baselines, comparison of six model families, rolling-origin validation, leakage audit, ablation, tuning, error analysis (including a demand-level confusion matrix), response to findings, plain-language metric | [`reports/D_model_evaluation.md`](reports/D_model_evaluation.md), [`notebooks/04_…`](notebooks/04_modeling_and_evaluation.ipynb), [`models/`](models) |
-| **E — Demo** | FastAPI + Next.js app with a live zone map and bundled lookup tables (Streamlit fallback included) | [`app/`](app) |
-| **F — Presentation** | 10 slides: business problem, data, pipeline, EDA, results, limitations; 6 figures from the pack | [`presentation/team_teamdev_slides.pptx`](presentation/team_teamdev_slides.pptx) |
-| **G — Structure & reproducibility** | This README, pinned requirements, the layout above | repository root |
-| **Stretch — Uncertainty** | 80% and 90% interval per zone-hour, with guidance for operations | [`reports/D_stretch_uncertainty.md`](reports/D_stretch_uncertainty.md), [`submission/team_teamdev_prediction_intervals.csv`](submission/team_teamdev_prediction_intervals.csv) |
+| 🎯 | Prediction file (4,032 rows, original order) | [`submission/team_teamdev_submission.csv`](submission/team_teamdev_submission.csv) |
+| **A** | Cleaning & integration (A1–A8) | [`reports/A_cleaning_and_integration.md`](reports/A_cleaning_and_integration.md) · [`data/processed/`](data/processed) |
+| **B** | Data analysis (B1.1–B4.3) | [`reports/B_analysis_report.md`](reports/B_analysis_report.md) |
+| **C** | Visualisation pack (12 figures + captions) | [`figures/`](figures) · [`figure_captions.md`](figures/figure_captions.md) |
+| **D** | Modelling & evaluation (D1–D9) | [`reports/D_model_evaluation.md`](reports/D_model_evaluation.md) · [`models/`](models) |
+| **E** | Demo app | [`app/`](app) |
+| **F** | Presentation | [`presentation/team_teamdev_slides.pptx`](presentation/team_teamdev_slides.pptx) |
+| **G** | Structure & reproducibility | this README · [`requirements.txt`](requirements.txt) |
+| ✨ | Stretch: prediction intervals | [`reports/D_stretch_uncertainty.md`](reports/D_stretch_uncertainty.md) · [`submission/team_teamdev_prediction_intervals.csv`](submission/team_teamdev_prediction_intervals.csv) |
 
----
+<details>
+<summary><b>Repository structure</b></summary>
 
-## Methodology
+```
+hackathon/
+├── README.md · requirements.txt
+├── submission/      team_teamdev_submission.csv, team_teamdev_prediction_intervals.csv
+├── data/
+│   ├── raw/         original CSVs (never edited)
+│   └── processed/   master_train.csv, master_test.csv, data_dictionary_master.csv, cleaned tables
+├── notebooks/       01_… → 04_… (run in order)
+├── src/             cleaning.py, features.py, train.py, predict.py, app_assets.py, helpers
+├── models/          final_model.joblib, final_model_params.json
+├── figures/         fig01_… → fig12_…, figure_captions.md
+├── reports/         A_…, B_…, D_… reports, cleaning log, extra charts
+├── app/             app.py (FastAPI), streamlit_app.py, requirements.txt, assets/, web/ (Next.js)
+├── presentation/    team_teamdev_slides.pptx
+└── docs/            hackathon instructions, demo screenshot
+```
+</details>
 
-**Data cleaning.** Zone names and event types are mapped to one canonical spelling. Every timestamp
-format is parsed explicitly and checked for day-first versus month-first errors. Sentinel values,
-the Fahrenheit block, export spikes and duplicate hours are all corrected, and each fix is recorded in
-the cleaning log with the number of rows affected and the reason.
+<details>
+<summary><b>Methodology</b></summary>
 
-**Integration.** The zone × hour grid is the left table, so every forecast hour keeps exactly one row.
-Weather joins many-to-one on the hour after the UTC → EAT shift; duplicate weather hours are averaged
-first so the row count cannot change. Events join as intervals: a venue event's window opens 2 hours
-before it starts and closes 3 hours after it ends. Holidays, school breaks and road closures use their
-own dates.
+- **Cleaning:**
+  - zone names and event types are mapped to one spelling;
+  - every date format is parsed explicitly;
+  - sentinel values (`-9999`, `-1`), a Fahrenheit block, ×8 export spikes and duplicate hours are fixed;
+  - each fix is logged with its row count and reason.
+- **Integration:**
+  - the zone × hour grid is the left table, so row counts never change;
+  - weather joins on the EAT hour;
+  - venue events open 2 h before they start and close 3 h after they end.
+- **Features (36, all known in advance):**
+  - calendar (hour, weekday, holidays, holiday eve, payday, trend);
+  - zone and zone type;
+  - weather (temperature, rain, rain over the last 3 h, humidity, wind);
+  - events (type, phase, attendance);
+  - history (lags of 14 days or more, a recent zone × weekday × hour profile).
+- **Modelling:**
+  - LightGBM with a Poisson objective, since demand is a count;
+  - tuned by random search on the earlier rolling folds only, so the main validation fortnight never
+    influenced tuning;
+  - intervals from split-conformal residuals.
+</details>
 
-**Features.** 36 features, all known before the forecast fortnight begins:
-
-- **Calendar:** hour, weekday, weekend, month, payday window, public holiday, holiday eve, school break,
-  trend.
-- **Zone:** zone and zone type.
-- **Weather:** temperature, rain, rain over the last 3 hours, rain class, humidity, wind.
-- **Events:** in-window flags by event type, before/during/after phase, attendance, hours to the next
-  major event and since the last one.
-- **History:** lags of at least 14 days and a recent zone × weekday × hour profile.
-
-**Modelling.** Two baselines and six model families are compared on the same chronological split.
-LightGBM with a Poisson objective wins: demand is a count, and its variance grows with its level. The
-hyperparameters come from a 16-trial random search on the four earlier rolling folds, so the main
-validation fortnight never influenced tuning. Error analysis showed that most of the largest misses fell
-on holiday eves, which led to the holiday-eve feature in the final model.
-
----
-
-## Compliance with the hackathon rules
+<details>
+<summary><b>Compliance with the hackathon rules</b></summary>
 
 | Rule | How it is met |
 |---|---|
-| Weather and event features in the final model | 6 weather and 12 event features are model inputs; the ablation measures what each adds. |
-| Forecast-time features only | `active_drivers`, `avg_wait_min` and `avg_fare_birr` are excluded, and every lag is at least 14 days old. The D4 leakage audit shows the inflated score a leaky model would have reported. |
-| Chronological validation only | A held-out fortnight plus five rolling-origin folds. A random split appears only as a labelled contrast. |
-| Nothing fitted on the test file | Medians, caps, encoders, zone types and profiles are fitted on training rows only, and re-fitted inside each validation fold. |
-| Reproducibility | Pinned requirements, relative paths, `random_state = 42`, and notebooks that run top to bottom. |
-| Raw data untouched | `data/raw/` is read-only; all cleaned outputs go to `data/processed/`. |
+| Weather and event features in the final model | 6 weather and 12 event features; the ablation measures what each adds |
+| Forecast-time features only | Fares, wait times and active drivers are excluded; every lag is ≥ 14 days; leakage audit in D4 |
+| Chronological validation | A held-out fortnight plus 5 rolling-origin folds |
+| Nothing fitted on the test file | Encoders, profiles and caps are fitted on training rows only, and re-fitted inside each fold |
+| Reproducibility | Pinned versions, relative paths, `random_state = 42`, notebooks run top to bottom |
+| Raw data untouched | `data/raw/` is read-only; outputs go to `data/processed/` |
+</details>
 
-All data in this project is synthetic and was provided for training purposes by the hackathon organisers.
+---
+
+<sub>All data is synthetic and was provided by the hackathon organisers for training purposes.</sub>
