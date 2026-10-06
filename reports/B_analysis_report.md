@@ -304,3 +304,46 @@ City-wide trips per zone-hour per day (11 zones open all year, holidays removed)
 | payday window (last 5 + first 2 days) |  1.054 |     64 |
 
 Days in the payday window run **+7.1%** above equally-detrended ordinary days (bootstrap 95% CI +5.7% to +8.6%). The effect is small but clearly non-zero and known in advance from the calendar, so we keep `is_payday_window` as a feature (D5 and fig12 show whether the model uses it).
+
+
+## Supplementary: feature correlation matrix
+
+Spearman correlation (rank-based, so it also catches curved relationships) between the forecast-time features and trips, over all 83,104 observed zone-hours. The operational columns (fares, wait times, active drivers) are left out because they are not known at forecast time (see B4.1).
+
+![Feature correlation matrix](b_correlation_matrix.png)
+
+**Correlation with trips, strongest first**
+
+| feature                       |   spearman_rho |
+|:------------------------------|---------------:|
+| zone x weekday x hour profile |          0.935 |
+| mean lag 2-4 weeks            |          0.925 |
+| lag 14 days                   |          0.897 |
+| lag 28 days                   |          0.895 |
+| temperature                   |          0.501 |
+| hour                          |          0.407 |
+| humidity                      |         -0.369 |
+| zone level 2-4 weeks          |          0.272 |
+| rain, last 3 h                |          0.244 |
+| rain (mm)                     |          0.237 |
+| trend (days)                  |          0.115 |
+| event attendance (log)        |          0.107 |
+| event under way               |          0.081 |
+| weekend                       |         -0.065 |
+| public holiday                |         -0.033 |
+| payday window                 |          0.032 |
+| wind                          |         -0.010 |
+| holiday eve                   |         -0.004 |
+
+**Most strongly related feature pairs**
+
+| feature_a          | feature_b                     |   spearman_rho |
+|:-------------------|:------------------------------|---------------:|
+| lag 14 days        | mean lag 2-4 weeks            |          0.966 |
+| mean lag 2-4 weeks | zone x weekday x hour profile |          0.965 |
+| lag 28 days        | mean lag 2-4 weeks            |          0.964 |
+| lag 14 days        | zone x weekday x hour profile |          0.935 |
+| lag 28 days        | zone x weekday x hour profile |          0.934 |
+| lag 28 days        | lag 14 days                   |          0.895 |
+
+The history features carry most of the signal: the zone x weekday x hour profile alone has rho = 0.94 with trips, and the lag features are almost copies of each other (rho up to 0.97), so each extra lag adds little on its own. Raw weather correlations are confounded by the time of day: temperature looks strongly positive (rho = 0.50) mainly because it peaks in the daytime when demand is high (temperature vs hour rho = 0.54), and the rain correlation (rho = 0.24) mixes rain's real effect with the fact that it falls in the busy afternoon. That is why B2 measures weather and events against the expected demand for the same zone, weekday and hour instead of reading this matrix directly.

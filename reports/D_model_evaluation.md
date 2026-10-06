@@ -21,12 +21,12 @@ Six model families on the same split. The machine-learning models all get the sa
 
 | model                                                                             |   rmse |   mae |   rolling_rmse_mean |   fit_seconds |   rmse_vs_seasonal_naive_pct |
 |:----------------------------------------------------------------------------------|-------:|------:|--------------------:|--------------:|-----------------------------:|
-| LightGBM (Poisson objective)                                                      |   8.07 |  5.58 |                8.77 |          3.92 |                       -18.84 |
-| HistGradientBoosting (log target)                                                 |   8.20 |  5.65 |                8.99 |          1.88 |                       -17.53 |
-| Gradient boosting, scikit-learn classic (log target)                              |   8.63 |  5.92 |                9.16 |         86.67 |                       -13.20 |
-| Random forest (log target)                                                        |   8.79 |  5.97 |                9.60 |         26.60 |                       -11.63 |
-| ARIMA(2,0,1) on daily/weekly Fourier seasonality, one per zone (time series only) |  10.41 |  6.86 |               11.52 |          5.29 |                         4.72 |
-| Ridge (linear, log target, one-hot zone/hour/weekday)                             |  12.99 |  7.80 |               13.95 |          0.49 |                        30.61 |
+| LightGBM (Poisson objective)                                                      |   8.07 |  5.58 |                8.77 |          4.04 |                       -18.84 |
+| HistGradientBoosting (log target)                                                 |   8.20 |  5.65 |                8.99 |          1.94 |                       -17.53 |
+| Gradient boosting, scikit-learn classic (log target)                              |   8.63 |  5.92 |                9.16 |         91.31 |                       -13.20 |
+| Random forest (log target)                                                        |   8.79 |  5.97 |                9.60 |         28.82 |                       -11.63 |
+| ARIMA(2,0,1) on daily/weekly Fourier seasonality, one per zone (time series only) |  10.41 |  6.86 |               11.52 |          4.97 |                         4.72 |
+| Ridge (linear, log target, one-hot zone/hour/weekday)                             |  12.99 |  7.80 |               13.95 |          0.69 |                        30.61 |
 
 **Winner: LightGBM (Poisson objective)** (RMSE 8.07, 19% better than the 4-week seasonal naive). The three gradient-boosting models (LightGBM 8.07, HistGradientBoosting 8.20, classic gradient boosting 8.63) lead, ahead of the random forest and the linear model: demand is driven by interactions (zone x hour x weekday, rain x zone type, event phase x zone) that trees find automatically and a linear model cannot. **ARIMA** (10.41; rolling 11.52 vs seasonal naive 11.48) does no better than the seasonal naive: over a 14-day horizon its short-memory ARIMA part fades to the smooth seasonal curve within hours, and it cannot see rain, events or holidays — the features that explain the departures from the usual weekly shape. We pick LightGBM because it is the most accurate, trains in seconds, handles missing lags natively and its Poisson objective matches count data.
 
@@ -224,6 +224,41 @@ Out-of-fold predictions of the tuned model over all 5 rolling folds (19,642 zone
 | Kazanchis | 2025-09-10 19:00:00 |   147.0 |   78.1 |  68.9 |       0.0 | EVT-0119;EVT-0120 | eve of Enkutatash (Ethiopian New Year): unlisted eve crowds                                      |
 
 Errors scale with volume: Kazanchis, Merkato and Bole have the largest RMSE but similar errors relative to their demand, and the evening peak hours carry the most error. Holidays are harder than ordinary days. **9 of the 10 biggest misses are on the eve of a public holiday** — Meskel eve (the Demera bonfire at Meskel Square, next to Kazanchis and Piassa) and Ethiopian New Year eve (Merkato shopping) — which the calendar does not list. The remaining one has no listed event or rain, so it is probably an unlisted gathering. All 10 are under-forecasts (positive errors): the model plays safe on surges.
+
+
+### D7 (continued) Demand-level confusion matrix
+
+Trips are a count, so we turn them into four demand levels to read the model like a classifier. For every fold, each zone's thresholds are the 25th, 75th and 90th percentiles of its trips over the last 8 weeks of that fold's training data: **Quiet** (below the 25th), **Normal**, **Busy** (75th–90th) and **Peak** (above the 90th). The same thresholds are applied to the actual count and to each forecast, over the same 19,642 out-of-fold zone-hours as above.
+
+**LightGBM (tuned): rows = actual level, columns = predicted level (row %)**
+
+| actual   | pred Quiet   | pred Normal   | pred Busy   | pred Peak   |   total |
+|:---------|:-------------|:--------------|:------------|:------------|--------:|
+| Quiet    | 4,046 (89%)  | 482 (11%)     | 1 (0%)      | 0 (0%)      |   4,529 |
+| Normal   | 822 (9%)     | 7,975 (82%)   | 842 (9%)    | 30 (0%)     |   9,669 |
+| Busy     | 0 (0%)       | 806 (26%)     | 1,929 (62%) | 362 (12%)   |   3,097 |
+| Peak     | 0 (0%)       | 81 (3%)       | 917 (39%)   | 1,349 (57%) |   2,347 |
+
+**Seasonal-naive baseline (same thresholds)**
+
+| actual   | pred Quiet   | pred Normal   | pred Busy   | pred Peak   |   total |
+|:---------|:-------------|:--------------|:------------|:------------|--------:|
+| Quiet    | 3,976 (88%)  | 548 (12%)     | 5 (0%)      | 0 (0%)      |   4,529 |
+| Normal   | 877 (9%)     | 7,637 (79%)   | 1,000 (10%) | 155 (2%)    |   9,669 |
+| Busy     | 3 (0%)       | 942 (30%)     | 1,623 (52%) | 529 (17%)   |   3,097 |
+| Peak     | 1 (0%)       | 247 (11%)     | 963 (41%)   | 1,136 (48%) |   2,347 |
+
+**Summary**
+
+| forecast                  |   exact_level_accuracy |   within_one_level |   macro_f1 |   peak_recall |   peak_precision |   peaks_called_quiet_or_normal |   under_called_share |   over_called_share |
+|:--------------------------|-----------------------:|-------------------:|-----------:|--------------:|-----------------:|-------------------------------:|---------------------:|--------------------:|
+| LightGBM (tuned)          |                  0.779 |              0.994 |      0.732 |         0.575 |            0.775 |                         81.000 |                0.134 |               0.087 |
+| Seasonal naive (4 weeks)  |                  0.732 |              0.979 |      0.670 |         0.484 |            0.624 |                        248.000 |                0.154 |               0.114 |
+| LightGBM, upper 80% bound |                  0.629 |              0.972 |      0.582 |         0.924 |            0.497 |                          5.000 |                0.019 |               0.352 |
+
+![Demand-level confusion matrices](d7_confusion_matrix.png)
+
+The model puts 78% of zone-hours in the right level (baseline 73%) and 99.4% within one level, with a macro-F1 of 0.73 against 0.67. Its weak spot is the top of the range: it catches only 57% of actual peak hours, and most of the misses are called Busy rather than Quiet or Normal (81 peaks were called Quiet or Normal). That matches D7: the model under-forecasts surges. For planning, using the **upper bound of the 80% interval** as a peak alert raises peak recall to 92%, at the cost of precision (50% of alerts are real peaks), which is the right trade when a missed peak means riders without cars. (The interval width is calibrated on the last two folds, so the alert row is slightly optimistic for those folds.)
 
 
 ## D8 Response to findings

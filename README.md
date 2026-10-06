@@ -228,8 +228,8 @@ hackathon/
 │   └── figure_captions.md
 ├── reports/
 │   ├── A_cleaning_and_integration.md   (+ A1_cleaning_log.csv, a3_join_map.png)
-│   ├── B_analysis_report.md
-│   ├── D_model_evaluation.md           (+ D_permutation_importance.csv)
+│   ├── B_analysis_report.md            (+ b_correlation_matrix.png)
+│   ├── D_model_evaluation.md           (+ D_permutation_importance.csv, d7_confusion_matrix.png)
 │   └── D_stretch_uncertainty.md
 ├── app/
 │   ├── app.py                          FastAPI service: forecast API + serves the web interface
@@ -249,9 +249,9 @@ hackathon/
 |---|---|---|
 | **Prediction file** | 4,032 forecasts in the original row order | [`submission/team_teamdev_submission.csv`](submission/team_teamdev_submission.csv) |
 | **A — Cleaning & integration** | A1–A8: cleaning log, key and time standardisation with the timezone proof, join map, join audit, join proof, feature table, integrity checks, master tables | [`reports/A_cleaning_and_integration.md`](reports/A_cleaning_and_integration.md), [`notebooks/01_…`](notebooks/01_cleaning_and_integration.ipynb), [`data/processed/`](data/processed) |
-| **B — Data analysis** | B1.1–B4.3: all 14 tasks, each with a result and an interpretation | [`reports/B_analysis_report.md`](reports/B_analysis_report.md), [`notebooks/02_…`](notebooks/02_analysis_report.ipynb) |
+| **B — Data analysis** | B1.1–B4.3: all 14 tasks, each with a result and an interpretation, plus a feature correlation matrix | [`reports/B_analysis_report.md`](reports/B_analysis_report.md), [`notebooks/02_…`](notebooks/02_analysis_report.ipynb) |
 | **C — Visualisation pack** | 12 figures (150 dpi, colourblind-safe palette) with captions | [`figures/`](figures), [`figures/figure_captions.md`](figures/figure_captions.md), [`notebooks/03_…`](notebooks/03_visualizations.ipynb) |
-| **D — Modelling & evaluation** | D1–D9: baselines, comparison of six model families, rolling-origin validation, leakage audit, ablation, tuning, error analysis, response to findings, plain-language metric | [`reports/D_model_evaluation.md`](reports/D_model_evaluation.md), [`notebooks/04_…`](notebooks/04_modeling_and_evaluation.ipynb), [`models/`](models) |
+| **D — Modelling & evaluation** | D1–D9: baselines, comparison of six model families, rolling-origin validation, leakage audit, ablation, tuning, error analysis (including a demand-level confusion matrix), response to findings, plain-language metric | [`reports/D_model_evaluation.md`](reports/D_model_evaluation.md), [`notebooks/04_…`](notebooks/04_modeling_and_evaluation.ipynb), [`models/`](models) |
 | **E — Demo** | FastAPI + Next.js app with a live zone map and bundled lookup tables (Streamlit fallback included) | [`app/`](app) |
 | **F — Presentation** | 5 slides, using 4 figures from the pack | [`presentation/team_teamdev_slides.pptx`](presentation/team_teamdev_slides.pptx) |
 | **G — Structure & reproducibility** | This README, pinned requirements, the layout above | repository root |
