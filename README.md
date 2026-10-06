@@ -97,12 +97,11 @@ interface.
 | `GET /api/city?date=` | All 12 zones for one day, ranked |
 | `GET /api/basemap/{dark\|light\|voyager}/{z}/{x}/{y}.png` | CARTO map tiles, fetched and cached by the server |
 
-**Map:** CARTO basemaps (Dark, Light, Streets). The server fetches the tiles, so the key never reaches
-the browser or the repo. Put it in `app/.env` as `CARTO_API_KEY=...` locally (template:
-`app/.env.example`), or in Vercel's environment variables. If CARTO rejects the key, the server retries
-without it, because the public basemaps are free. Without internet, the map shows a plain background
-and still shows every zone. If `/api/basemap/...` answers with the header `X-Basemap: offline`, the
-server cannot reach `basemaps.cartocdn.com`; allow that host on the network.
+**Map:** CARTO basemaps (Dark, Light, Streets). CARTO's basemap tiles are public and need no key. The
+server fetches and caches them; an optional `CARTO_API_KEY` (in `app/.env` locally, or Vercel's environment
+variables) is sent along but never reaches the browser or the repo. If the server cannot reach CARTO, the
+browser loads the public tiles directly. With no internet at all, the map shows a plain background and
+still shows every zone.
 
 The interface's compiled build is committed in `app/web/out/`, so you need **Python only**.
 To change the interface, run `npm install && npm run build` in `app/web/`. A simpler Streamlit fallback

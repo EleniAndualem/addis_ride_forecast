@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import os
+import ssl
 import threading
 import urllib.error
 import urllib.parse
@@ -126,7 +127,7 @@ def zone_events(zone: str, day: pd.Timestamp) -> pd.DataFrame:
 # ----------------------------------------------------------------------------------------------------
 app = FastAPI(title="Addis Ride Demand Forecast", version="1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-                   allow_methods=["GET"], allow_headers=["*"])
+                   allow_methods=["GET"], allow_headers=["*"], expose_headers=["X-Basemap"])
 
 
 @app.get("/api/health")
@@ -135,6 +136,15 @@ def health():
     return {"status": "ok", "model": "LightGBM (Poisson)", "rows_scored": int(len(TEST)), "zones": len(ZONES),
             "first_day": f"{FIRST_DAY:%Y-%m-%d}", "last_day": f"{LAST_DAY:%Y-%m-%d}",
             "basemap": {"provider": "CARTO", "api_key_configured": bool(CARTO_API_KEY)}}
+
+
+# Some Python installs (notably python.org builds on macOS) ship without CA certificates, so HTTPS calls to
+# CARTO fail and the map goes blank. Use certifi's bundle when it is installed.
+try:
+    import certifi
+    _SSL = ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    _SSL = ssl.create_default_context()
 
 
 @app.get("/api/basemap/{style}/{z}/{x}/{y}.png")
@@ -156,7 +166,7 @@ def basemap_tile(style: str, z: int, x: int, y: int):
     for u in urls:
         try:
             req = urllib.request.Request(u, headers={"User-Agent": "addis-ride-demand/1.0"})
-            with urllib.request.urlopen(req, timeout=8) as r:
+            with urllib.request.urlopen(req, timeout=8, context=_SSL) as r:
                 data = r.read()
             break
         except urllib.error.HTTPError:

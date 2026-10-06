@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Map, { Marker, NavigationControl } from "react-map-gl/maplibre";
 import type { StyleSpecification } from "maplibre-gl";
 import type { CityZone, Zone } from "@/lib/api";
@@ -13,15 +13,25 @@ export type MapStyle = "dark" | "light" | "voyager";
 export const MAP_STYLES: { id: MapStyle; label: string }[] = [
   { id: "dark", label: "Dark" }, { id: "light", label: "Light" }, { id: "voyager", label: "Streets" },
 ];
-function cartoStyle(style: MapStyle): StyleSpecification {
+const CARTO_PATH: Record<MapStyle, string> = { dark: "dark_all", light: "light_all", voyager: "rastertiles/voyager" };
+function apiRoot() {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const root = BASE.startsWith("http") ? BASE : `${origin}${BASE}`;
+  return BASE.startsWith("http") ? BASE : `${origin}${BASE}`;
+}
+// Tiles normally come through our server. If the server cannot reach CARTO (no internet on the server,
+// missing CA certificates, API not running), the browser loads CARTO's public tiles directly instead.
+function tileUrls(style: MapStyle, direct: boolean) {
+  return direct
+    ? ["a", "b", "c", "d"].map((s) => `https://${s}.basemaps.cartocdn.com/${CARTO_PATH[style]}/{z}/{x}/{y}@2x.png`)
+    : [`${apiRoot()}/api/basemap/${style}/{z}/{x}/{y}.png`];
+}
+function cartoStyle(style: MapStyle, direct: boolean): StyleSpecification {
   return {
     version: 8,
     sources: {
       carto: {
         type: "raster",
-        tiles: [`${root}/api/basemap/${style}/{z}/{x}/{y}.png`],
+        tiles: tileUrls(style, direct),
         tileSize: 256,
         maxzoom: 19,
         attribution: "© OpenStreetMap contributors © CARTO",
@@ -70,7 +80,14 @@ type Props = {
 export default function ZoneMap({ zones, city, hour, selected, onSelect }: Props) {
   const byZone = useMemo(() => Object.fromEntries((city ?? []).map((c) => [c.zone, c])), [city]);
   const [mapStyle, setMapStyle] = useState<MapStyle>("dark");
-  const style = useMemo(() => cartoStyle(mapStyle), [mapStyle]);
+  const [direct, setDirect] = useState(false);
+  useEffect(() => {
+    // Probe one Addis Ababa tile through the server; fall back to direct CARTO tiles if it comes back offline.
+    fetch(`${apiRoot()}/api/basemap/dark/10/622/486.png`)
+      .then((r) => { if (!r.ok || r.headers.get("X-Basemap") === "offline") setDirect(true); })
+      .catch(() => setDirect(true));
+  }, []);
+  const style = useMemo(() => cartoStyle(mapStyle, direct), [mapStyle, direct]);
   const narrow = typeof window !== "undefined" && window.innerWidth < 640;
   const max = useMemo(() => Math.max(1, ...(city ?? []).map((c) => c.hourly[hour] ?? 0)), [city, hour]);
 
