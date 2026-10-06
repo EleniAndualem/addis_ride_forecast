@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, fmt, type City, type Forecast, type Meta } from "@/lib/api";
 import { DriverChart, ForecastChart, Spark } from "@/components/charts";
-import Sidebar from "@/components/sidebar";
 import AppNav, { NAV, type Section } from "@/components/app-nav";
 
 const ZoneMap = dynamic(() => import("@/components/zone-map"), {
@@ -29,8 +28,6 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [sidebar, setSidebar] = useState(false);
-  const closeSidebar = useCallback(() => setSidebar(false), []);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
   const [active, setActive] = useState<Section>("overview");
@@ -54,6 +51,14 @@ export default function Page() {
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, [meta]);
+  // Arriving from the About page with /#forecast etc.: jump to that section once the page has content.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (fc && NAV.some((n) => n.id === id)) {
+      setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: "start" }), 50);
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  }, [fc]);
   const navigate = useCallback((s: Section) => {
     setMobileNav(false);
     setActive(s);
@@ -120,14 +125,14 @@ export default function Page() {
 
   const k = fc?.kpis;
   const h = fc?.hours[hour];
+  const query = zone && date ? `?zone=${encodeURIComponent(zone)}&date=${date}` : "";
   const title = NAV.find((n) => n.id === active)?.title ?? "Dashboard Overview";
 
   return (
     <div className="bg-grid flex min-h-screen">
       <AppNav meta={meta} zone={zone} zoneInfo={zoneInfo} city={city?.zones ?? null} hour={hour} active={active}
               collapsed={collapsed} mobileOpen={mobileNav} onCollapse={toggleCollapsed} onCloseMobile={() => setMobileNav(false)}
-              onNavigate={navigate} onZone={(z) => { setZone(z); setMobileNav(false); }} onAbout={() => { setMobileNav(false); setSidebar(true); }} />
-      <Sidebar open={sidebar} onClose={closeSidebar} meta={meta} />
+              onNavigate={navigate} onZone={(z) => { setZone(z); setMobileNav(false); }} query={query} />
 
       <main className="min-w-0 flex-1">
         {/* ── Top bar ─────────────────────────────────────────────── */}
@@ -144,8 +149,8 @@ export default function Page() {
                 <span className="hidden rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-semibold text-slate-200 md:inline">Team {meta.team}</span>
                 <span className="hidden rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-[12px] font-semibold text-orange-200 sm:inline">RMSE {meta.model.rmse}</span>
               </>}
-              <button onClick={() => setSidebar(true)} aria-label="Open project overview" aria-expanded={sidebar} title="About this project"
-                      className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-accent to-violet text-[12px] font-bold text-white shadow-lg shadow-accent/20 transition hover:scale-105">TD</button>
+              <a href={`/about/${query}`} aria-label="About this project" title="About this project"
+                 className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-accent to-violet text-[12px] font-bold text-white shadow-lg shadow-accent/20 transition hover:scale-105">TD</a>
             </div>
           </div>
         </header>

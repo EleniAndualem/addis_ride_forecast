@@ -13,18 +13,19 @@ export type Section = (typeof NAV)[number]["id"];
 
 type Props = {
   meta: Meta | null;
-  zone: string;
-  zoneInfo: Zone | undefined;
-  city: CityZone[] | null;
-  hour: number;
-  active: Section;
+  zone?: string;
+  zoneInfo?: Zone;
+  city?: CityZone[] | null;
+  hour?: number;
+  active: Section | "about";
+  // Query string (?zone=..&date=..) carried between the dashboard and the About page.
+  query?: string;
   collapsed: boolean;
   mobileOpen: boolean;
   onCollapse: () => void;
   onCloseMobile: () => void;
-  onNavigate: (s: Section) => void;
-  onZone: (z: string) => void;
-  onAbout: () => void;
+  onNavigate?: (s: Section) => void;
+  onZone?: (z: string) => void;
 };
 
 function Label({ children }: { children: React.ReactNode }) {
@@ -37,7 +38,12 @@ export default function AppNav(p: Props) {
   const m = p.meta?.model;
   const better = m ? Math.round(100 * (1 - m.rmse / m.baseline_rmse)) : null;
   const rail = p.collapsed;
-  const max = Math.max(1, ...(p.city ?? []).map((c) => c.hourly[p.hour] ?? 0));
+  const hour = p.hour ?? 0;
+  const max = Math.max(1, ...(p.city ?? []).map((c) => c.hourly[hour] ?? 0));
+  const onDashboard = p.active !== "about";
+  const item = (on: boolean) => `flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-[14px] font-semibold transition
+    ${rail ? "lg:justify-center lg:px-0" : ""}
+    ${on ? "border-accent/40 bg-accent/10 text-accent shadow-[0_0_24px_-8px_rgba(255,122,69,.6)]" : "border-transparent text-slate-300 hover:bg-white/5 hover:text-white"}`;
 
   return (
     <>
@@ -74,28 +80,23 @@ export default function AppNav(p: Props) {
             <div className="space-y-1">
               {NAV.map((n) => {
                 const on = p.active === n.id;
-                return (
-                  <button key={n.id} onClick={() => p.onNavigate(n.id)} title={n.label} aria-current={on ? "true" : undefined}
-                          className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-[14px] font-semibold transition
-                            ${rail ? "lg:justify-center lg:px-0" : ""}
-                            ${on ? "border-accent/40 bg-accent/10 text-accent shadow-[0_0_24px_-8px_rgba(255,122,69,.6)]" : "border-transparent text-slate-300 hover:bg-white/5 hover:text-white"}`}>
-                    <span className="text-base">{n.icon}</span>
-                    <span className={rail ? "lg:hidden" : ""}>{n.label}</span>
-                  </button>
-                );
+                const inner = <><span className="text-base">{n.icon}</span><span className={rail ? "lg:hidden" : ""}>{n.label}</span></>;
+                return onDashboard && p.onNavigate
+                  ? <button key={n.id} onClick={() => p.onNavigate?.(n.id)} title={n.label} aria-current={on ? "true" : undefined} className={item(on)}>{inner}</button>
+                  : <a key={n.id} href={`/${p.query ?? ""}#${n.id}`} title={n.label} className={item(on)}>{inner}</a>;
               })}
-              <button onClick={p.onAbout} title="About this project"
-                      className={`flex w-full items-center gap-3 rounded-xl border border-transparent px-3.5 py-2.5 text-[14px] font-semibold text-slate-300 transition hover:bg-white/5 hover:text-white ${rail ? "lg:justify-center lg:px-0" : ""}`}>
+              <a href={`/about/${p.query ?? ""}`} title="About this project" aria-current={!onDashboard ? "page" : undefined} className={item(!onDashboard)}>
                 <span className="text-base">ℹ️</span>
                 <span className={rail ? "lg:hidden" : ""}>About Project</span>
-              </button>
+              </a>
             </div>
           </nav>
 
           {/* Zone picker + list (hidden on the icon rail) */}
+          {onDashboard && <>
           <div className={`mt-5 border-t border-white/[.06] px-4 pt-5 ${rail ? "lg:hidden" : ""}`}>
             <Label>Zone</Label>
-            <select value={p.zone} onChange={(e) => p.onZone(e.target.value)} aria-label="Zone"
+            <select value={p.zone} onChange={(e) => p.onZone?.(e.target.value)} aria-label="Zone"
                     className="w-full cursor-pointer rounded-xl border border-white/10 bg-ink-850 px-3.5 py-2.5 text-[15px] font-semibold text-white outline-none transition hover:border-white/20 focus:border-accent/60">
               {p.meta?.zones.map((z) => <option key={z.zone} value={z.zone}>{z.zone}</option>)}
             </select>
@@ -108,13 +109,13 @@ export default function AppNav(p: Props) {
           </div>
 
           <div className={`mt-5 px-4 pb-4 ${rail ? "lg:hidden" : ""}`}>
-            <Label>All zones · {fmt.hour(p.hour)}</Label>
+            <Label>All zones · {fmt.hour(hour)}</Label>
             <div className="space-y-0.5">
               {p.meta?.zones.map((z) => {
-                const v = p.city?.find((c) => c.zone === z.zone)?.hourly[p.hour] ?? 0;
+                const v = p.city?.find((c) => c.zone === z.zone)?.hourly[hour] ?? 0;
                 const on = z.zone === p.zone;
                 return (
-                  <button key={z.zone} onClick={() => p.onZone(z.zone)}
+                  <button key={z.zone} onClick={() => p.onZone?.(z.zone)}
                           className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition ${on ? "bg-white/[.07] text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"}`}>
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: on ? "#ff7a45" : `rgba(76,155,255,${0.35 + 0.65 * v / max})` }} />
                     <span className="flex-1 truncate font-medium">{z.zone}</span>
@@ -124,6 +125,7 @@ export default function AppNav(p: Props) {
               })}
             </div>
           </div>
+          </>}
         </div>
 
         {/* Model card */}

@@ -1,19 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { Meta } from "@/lib/api";
 import { ABLATION, DATASETS, FINDINGS, LIMITATIONS, MODELS, PIPELINE, TEAM } from "@/lib/project";
 
-const TABS = [
-  { id: "overview", label: "Overview", icon: "◎" },
-  { id: "data", label: "Data", icon: "▤" },
-  { id: "pipeline", label: "Pipeline", icon: "⇢" },
-  { id: "findings", label: "Findings", icon: "✦" },
-  { id: "model", label: "Model", icon: "◆" },
-  { id: "limits", label: "Limits", icon: "△" },
-  { id: "team", label: "Team", icon: "☺" },
+export const ABOUT_SECTIONS = [
+  { id: "overview", label: "Overview" }, { id: "data", label: "Data" }, { id: "pipeline", label: "Pipeline" },
+  { id: "findings", label: "Findings" }, { id: "model", label: "Model" }, { id: "limits", label: "Limits" }, { id: "team", label: "Team" },
 ] as const;
-type Tab = (typeof TABS)[number]["id"];
 
 function H({ children }: { children: React.ReactNode }) {
   return <h3 className="mb-2.5 mt-6 text-[11px] font-semibold uppercase tracking-[.16em] text-slate-500 first:mt-0">{children}</h3>;
@@ -27,47 +20,26 @@ function Stat({ value, label, tone = "text-white" }: { value: string; label: str
   );
 }
 
-export default function Sidebar({ open, onClose, meta }: { open: boolean; onClose: () => void; meta: Meta | null }) {
-  const [tab, setTab] = useState<Tab>("overview");
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+function Card({ id, icon, title, className = "", children }: { id: string; icon: string; title: string; className?: string; children: React.ReactNode }) {
+  return (
+    <section id={id} className={`glass scroll-mt-28 p-6 ${className}`}>
+      <h2 className="mb-4 flex items-center gap-2.5 text-lg font-bold tracking-tight text-white">
+        <span className="grid h-8 w-8 place-items-center rounded-xl bg-accent/15 text-[14px] text-accent">{icon}</span>{title}
+      </h2>
+      {children}
+    </section>
+  );
+}
 
+// The project write-up: business problem, data, pipeline, findings, model, limitations and team.
+export default function AboutSections({ meta }: { meta: Meta | null }) {
   const m = meta?.model;
   const better = m ? Math.round(100 * (1 - m.rmse / m.baseline_rmse)) : null;
   const maxRmse = Math.max(...MODELS.map((x) => x.rmse));
 
   return (
-    <>
-      <div onClick={onClose} aria-hidden
-           className={`fixed inset-0 z-40 bg-ink-950/60 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "pointer-events-none opacity-0"}`} />
-      <aside role="dialog" aria-modal="true" aria-label="About this project" aria-hidden={!open}
-             className={`fixed inset-y-0 left-0 z-50 flex w-full max-w-[420px] flex-col border-r border-white/10 bg-ink-900/95 shadow-2xl shadow-black/50 backdrop-blur-xl transition-transform duration-300 ease-out ${open ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="flex items-center gap-3 border-b border-white/5 px-5 py-4">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-accent to-[#ff4d6d] text-lg">🚕</div>
-          <div className="flex-1 leading-tight">
-            <div className="text-[15px] font-bold text-white">About this project</div>
-            <div className="text-[11px] text-slate-500">Team {meta?.team ?? "teamdev"} · Qiyas Data Science &amp; AI Hackathon</div>
-          </div>
-          <button onClick={onClose} aria-label="Close sidebar"
-                  className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white">✕</button>
-        </div>
-
-        <nav className="scrollbar-thin flex gap-1 overflow-x-auto border-b border-white/5 px-3 py-2.5">
-          {TABS.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)} aria-pressed={tab === t.id}
-                    className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold transition
-                      ${tab === t.id ? "bg-accent/15 text-accent ring-1 ring-accent/30" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"}`}>
-              <span aria-hidden className="text-[11px]">{t.icon}</span>{t.label}
-            </button>
-          ))}
-        </nav>
-
-        <div className="scrollbar-thin flex-1 overflow-y-auto px-5 py-5 text-sm text-slate-300">
-          {tab === "overview" && (
-            <div>
+    <div className="grid gap-5 text-sm text-slate-300 lg:grid-cols-2">
+          <Card id="overview" icon="◎" title="Overview" className="lg:col-span-2">
               <H>The business problem</H>
               <p className="leading-relaxed">
                 Ride demand in Addis Ababa swings by zone, hour, weather and events. Too few drivers means lost rides;
@@ -82,7 +54,7 @@ export default function Sidebar({ open, onClose, meta }: { open: boolean; onClos
                 ))}
               </ul>
               <H>Headline results</H>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
                 <Stat value={m ? `${m.rmse}` : "–"} label="RMSE, trips per zone-hour (18–31 Oct)" tone="text-accent" />
                 <Stat value={better !== null ? `−${better}%` : "–"} label={`vs best simple baseline (${m?.baseline_rmse ?? "–"})`} tone="text-mint" />
                 <Stat value={m ? `${m.rolling_rmse} ± ${m.rolling_rmse_sd}` : "–"} label="RMSE over 5 rolling 14-day folds" />
@@ -95,11 +67,9 @@ export default function Sidebar({ open, onClose, meta }: { open: boolean; onClos
                 <li>• Weather and events are looked up for you; ⚡ marks a zone with an event that day.</li>
                 <li>• Drivers needed = forecast ÷ {meta?.trips_per_driver_hour ?? 1.3} trips per driver-hour.</li>
               </ul>
-            </div>
-          )}
+          </Card>
 
-          {tab === "data" && (
-            <div>
+          <Card id="data" icon="▤" title="Data" className="">
               <H>Four input tables</H>
               <div className="space-y-2.5">
                 {DATASETS.map((d) => (
@@ -117,11 +87,9 @@ export default function Sidebar({ open, onClose, meta }: { open: boolean; onClos
                 <Stat value={m ? m.n_train.toLocaleString() : "–"} label="training zone-hours" />
               </div>
               <p className="mt-4 text-[12px] italic text-slate-500">All data is synthetic, provided by the hackathon organisers.</p>
-            </div>
-          )}
+          </Card>
 
-          {tab === "pipeline" && (
-            <div>
+          <Card id="pipeline" icon="⇢" title="Pipeline" className="">
               <H>Six phases</H>
               <ol className="relative space-y-4 border-l border-white/10 pl-5">
                 {PIPELINE.map((p, i) => (
@@ -138,13 +106,11 @@ export default function Sidebar({ open, onClose, meta }: { open: boolean; onClos
                   <span key={g} className="rounded-full border border-mint/30 bg-mint/10 px-2.5 py-1 text-[11.5px] font-medium text-mint">{g}</span>
                 ))}
               </div>
-            </div>
-          )}
+          </Card>
 
-          {tab === "findings" && (
-            <div>
+          <Card id="findings" icon="✦" title="Key findings" className="lg:col-span-2">
               <H>What the data says</H>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
                 {FINDINGS.map((f) => (
                   <div key={f.label} className="rounded-2xl border border-white/5 bg-white/[.03] p-3">
                     <div className="text-lg">{f.icon}</div>
@@ -157,11 +123,9 @@ export default function Sidebar({ open, onClose, meta }: { open: boolean; onClos
                 Effects are local: the same rain that fills cars in Bole empties Merkato's open-air market, which is why the model
                 learns weather and event effects per zone type.
               </p>
-            </div>
-          )}
+          </Card>
 
-          {tab === "model" && (
-            <div>
+          <Card id="model" icon="◆" title="Model" className="">
               <H>Validation RMSE, 18–31 Oct (lower is better)</H>
               <div className="space-y-1.5">
                 {MODELS.map((x) => (
@@ -189,11 +153,9 @@ export default function Sidebar({ open, onClose, meta }: { open: boolean; onClos
                 {m?.name ?? "LightGBM (Poisson)"} on {m?.n_features ?? 36} features, trained {m?.trained_on ?? "1 Jan – 31 Oct 2025"}.
                 A Poisson objective suits counts whose spread grows with their level. Ranges come from calibrated residuals.
               </p>
-            </div>
-          )}
+          </Card>
 
-          {tab === "limits" && (
-            <div>
+          <Card id="limits" icon="△" title="Limitations & next steps" className="">
               <H>Limitations</H>
               <div className="space-y-2.5">
                 {LIMITATIONS.map((l) => (
@@ -209,13 +171,11 @@ export default function Sidebar({ open, onClose, meta }: { open: boolean; onClos
                 <li>• Per-zone uncertainty instead of one pooled range width</li>
                 <li>• Weekly retraining and live error monitoring</li>
               </ul>
-            </div>
-          )}
+          </Card>
 
-          {tab === "team" && (
-            <div>
+          <Card id="team" icon="☺" title="Team" className="lg:col-span-2">
               <H>Team {meta?.team ?? "teamdev"}</H>
-              <div className="space-y-1.5">
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {TEAM.map((t) => (
                   <div key={t.id} className="flex items-center gap-3 rounded-xl bg-white/[.03] px-3 py-2">
                     <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-sky/40 to-violet/40 text-[12px] font-bold text-white">
@@ -229,10 +189,7 @@ export default function Sidebar({ open, onClose, meta }: { open: boolean; onClos
                 ))}
               </div>
               <p className="mt-4 text-[12px] text-slate-500">Qiyas / IADE AI Training Program · Addis Ababa University</p>
-            </div>
-          )}
-        </div>
-      </aside>
-    </>
+          </Card>
+    </div>
   );
 }

@@ -81,9 +81,9 @@ hosted URL; the demo runs live from a laptop.
 - **City view:** a live map of all 12 zones, an hour slider, and a ranking of the zones for the day.
 - **Out-of-range dates** get a friendly message instead of an error.
 - **Layout:** a left sidebar (collapsible) with Overview, Forecast, Driver Plan and Data Table links,
-  a zone picker, all zones at the selected hour and the model card. **About Project** (or the **TD**
-  avatar) opens a panel with the business problem, data,
-  pipeline, key findings, model comparison, limitations and team.
+  a zone picker, all zones at the selected hour and the model card.
+- **About page** (`/about`, or the **TD** avatar): the business problem, data, pipeline, key findings,
+  model comparison, limitations and team on one page.
 - **Deep link:** `http://localhost:8000/?zone=Kazanchis&date=2025-11-09` opens that zone and day.
 
 The app is a FastAPI service (`app/app.py`) that serves the model through a JSON API and a Next.js
