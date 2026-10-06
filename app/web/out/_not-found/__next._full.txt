@@ -13,4 +13,4 @@ c:I[68027,["/_next/static/chunks/3fntmmi971322.js"],"default",1]
 9:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
 d:I[27201,["/_next/static/chunks/3fntmmi971322.js"],"IconMark"]
 6:null
-b:[["$","title","0",{"children":"Addis Ride Demand · Forecast"}],["$","meta","1",{"name":"description","content":"Hourly ride-hailing demand forecasts for 12 Addis Ababa zones, 1–14 November 2025 — team teamdev."}],["$","link","2",{"rel":"icon","href":"/icon.svg?icon.2zyyqj_5y9bek.svg","sizes":"any","type":"image/svg+xml"}],["$","$Ld","3",{}]]
+b:[["$","title","0",{"children":"Addis Ride Demand · Forecast"}],["$","meta","1",{"name":"description","content":"Hourly ride-hailing demand forecasts and driver planning for 12 Addis Ababa zones, 1–14 November 2025. Team teamdev, Qiyas Data Science & AI Hackathon."}],["$","link","2",{"rel":"icon","href":"/icon.svg?icon.2zyyqj_5y9bek.svg","sizes":"any","type":"image/svg+xml"}],["$","$Ld","3",{}]]

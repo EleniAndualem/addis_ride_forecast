@@ -2,9 +2,9 @@
 
 # 🚕 Addis Ababa Ride Demand Forecasting
 
-**Hourly trip forecasts for 12 Addis Ababa zones, 1–14 November 2025**
+**Hourly ride-hailing demand forecasts and driver planning for 12 Addis Ababa zones, 1–14 November 2025**
 
-Team **teamdev** · Qiyas AI Hackathon #2 · IADE AI Training Program, Addis Ababa University
+Team **teamdev** · Qiyas Data Science & AI Hackathon · IADE AI Training Program, Addis Ababa University
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![LightGBM](https://img.shields.io/badge/Model-LightGBM%20(Poisson)-0D7D81)
@@ -18,14 +18,17 @@ Team **teamdev** · Qiyas AI Hackathon #2 · IADE AI Training Program, Addis Aba
 
 ## Overview
 
-Ride demand in Addis Ababa swings by zone, hour, weather and events, and operators must place drivers
-before it arrives. We turned three messy exports (ten months of hourly trips, hourly weather and an
-events calendar) into one clean zone-hour table, fixing 28 documented data problems on the way. The
-biggest one was a weather clock stored in UTC rather than Addis time, which hid the rain effect until
-we corrected it. A tuned **LightGBM** model trained only on forecast-time features predicts the
-**4,032 zone-hours** of 1–14 November. It reaches a validation **RMSE of 8.09**, 19% better than the
-best simple baseline, which is about four drivers off per zone-hour. Every forecast also comes with a
-calibrated 80% and 90% range, and a local web app turns the forecasts into a driver plan.
+Ride demand in Addis Ababa changes by zone, hour, weather and events, and operators have to place drivers
+before it arrives. This project forecasts hourly trips for 12 zones over 1–14 November 2025
+(**4,032 zone-hours**) and turns them into a driver and fare plan.
+
+- **Data:** ten months of hourly trips joined with hourly weather and an events calendar. We documented
+  and fixed 28 data problems, including a weather clock stored in UTC instead of Addis time, which hid
+  the rain effect until corrected.
+- **Model:** a tuned **LightGBM (Poisson)** on 36 features known at forecast time. Validation
+  **RMSE 8.09**, 19% better than the best simple baseline, with calibrated 80% and 90% ranges.
+- **Dashboard:** a FastAPI + Next.js web app, run locally or deployed on Vercel, with a live zone map,
+  24-hour forecasts, a driver plan, an hourly table and a project page.
 
 | Metric | Score |
 |---|---|

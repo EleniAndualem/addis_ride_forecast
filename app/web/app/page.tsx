@@ -393,7 +393,7 @@ export default function Page() {
           </section>
 
           <footer className="flex flex-wrap items-center justify-between gap-3 px-1 pb-4 pt-2 text-xs text-slate-500">
-            <span>Team {meta?.team} · Qiyas AI Hackathon #2 · LightGBM on {meta?.model.n_features} forecast-time features, trained {meta?.model.trained_on}</span>
+            <span>Team {meta?.team} · Qiyas Data Science &amp; AI Hackathon · LightGBM on {meta?.model.n_features} forecast-time features, trained {meta?.model.trained_on}</span>
             <span>Validation RMSE {meta?.model.rmse} · MAE {meta?.model.mae} · rolling {meta?.model.rolling_rmse} · synthetic data</span>
           </footer>
         </div>

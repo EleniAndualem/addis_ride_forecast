@@ -366,5 +366,5 @@ weather, events and history at least 14 days old), trained on {escape(bundle['tr
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown(f'<div class="footer">Team {escape(bundle["team"])} · Qiyas AI Hackathon #2 · '
+st.markdown(f'<div class="footer">Team {escape(bundle["team"])} · Qiyas Data Science & AI Hackathon · '
             'synthetic training data, for demonstration only</div>', unsafe_allow_html=True)
