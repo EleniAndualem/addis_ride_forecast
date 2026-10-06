@@ -253,7 +253,7 @@ hackathon/
 | **C — Visualisation pack** | 12 figures (150 dpi, colourblind-safe palette) with captions | [`figures/`](figures), [`figures/figure_captions.md`](figures/figure_captions.md), [`notebooks/03_…`](notebooks/03_visualizations.ipynb) |
 | **D — Modelling & evaluation** | D1–D9: baselines, comparison of six model families, rolling-origin validation, leakage audit, ablation, tuning, error analysis (including a demand-level confusion matrix), response to findings, plain-language metric | [`reports/D_model_evaluation.md`](reports/D_model_evaluation.md), [`notebooks/04_…`](notebooks/04_modeling_and_evaluation.ipynb), [`models/`](models) |
 | **E — Demo** | FastAPI + Next.js app with a live zone map and bundled lookup tables (Streamlit fallback included) | [`app/`](app) |
-| **F — Presentation** | 5 slides, using 4 figures from the pack | [`presentation/team_teamdev_slides.pptx`](presentation/team_teamdev_slides.pptx) |
+| **F — Presentation** | 10 slides, using 7 figures from the pack | [`presentation/team_teamdev_slides.pptx`](presentation/team_teamdev_slides.pptx) |
 | **G — Structure & reproducibility** | This README, pinned requirements, the layout above | repository root |
 | **Stretch — Uncertainty** | 80% and 90% interval per zone-hour, with guidance for operations | [`reports/D_stretch_uncertainty.md`](reports/D_stretch_uncertainty.md), [`submission/team_teamdev_prediction_intervals.csv`](submission/team_teamdev_prediction_intervals.csv) |
 
