@@ -15,6 +15,7 @@ import base64
 import os
 import threading
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections import OrderedDict
 from pathlib import Path
@@ -149,13 +150,20 @@ def basemap_tile(style: str, z: int, x: int, y: int):
             _TILE_CACHE.move_to_end(key)
             return Response(_TILE_CACHE[key], media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
     url = f"https://{'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/{CARTO_STYLES[style]}/{z}/{x}/{y}@2x.png"
-    if CARTO_API_KEY:
-        url += f"?api_key={CARTO_API_KEY}"
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "addis-ride-demand/1.0"})
-        with urllib.request.urlopen(req, timeout=8) as r:
-            data = r.read()
-    except (urllib.error.URLError, TimeoutError, OSError):
+    # Try with the key first; if CARTO rejects the key, the public basemap still serves the tile without it.
+    urls = [f"{url}?api_key={urllib.parse.quote(CARTO_API_KEY)}", url] if CARTO_API_KEY else [url]
+    data = None
+    for u in urls:
+        try:
+            req = urllib.request.Request(u, headers={"User-Agent": "addis-ride-demand/1.0"})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                data = r.read()
+            break
+        except urllib.error.HTTPError:
+            continue
+        except (urllib.error.URLError, TimeoutError, OSError):
+            break
+    if data is None:
         return Response(EMPTY_TILE, media_type="image/png", headers={"Cache-Control": "no-store", "X-Basemap": "offline"})
     with _TILE_LOCK:
         _TILE_CACHE[key] = data
@@ -172,6 +180,7 @@ def meta():
         "model": {"name": "LightGBM (Poisson)", "n_features": len(FEATURES), "trained_on": BUNDLE["trained_on"],
                   "rmse": round(float(v["main_split_rmse"]), 2), "mae": round(float(v["main_split_mae"]), 2),
                   "rolling_rmse": round(float(v["rolling_rmse_mean"]), 2),
+                  "rolling_rmse_sd": round(float(v["rolling_rmse_sd"]), 2), "n_train": int(BUNDLE["n_train"]),
                   "baseline_rmse": round(float(v["seasonal_naive_rmse"]), 2)},
         "trips_per_driver_hour": TRIPS_PER_DRIVER_HOUR,
         "basemap": {"tiles": "/api/basemap/{style}/{z}/{x}/{y}.png", "styles": list(CARTO_STYLES),

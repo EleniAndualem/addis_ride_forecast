@@ -80,6 +80,8 @@ hosted URL; the demo runs live from a laptop.
   - an hourly table you can export as CSV.
 - **City view:** a live map of all 12 zones, an hour slider, and a ranking of the zones for the day.
 - **Out-of-range dates** get a friendly message instead of an error.
+- **Project panel:** the **☰ Project** button opens a sidebar with the business problem, data,
+  pipeline, key findings, model comparison, limitations and team.
 - **Deep link:** `http://localhost:8000/?zone=Kazanchis&date=2025-11-09` opens that zone and day.
 
 The app is a FastAPI service (`app/app.py`) that serves the model through a JSON API and a Next.js
@@ -93,9 +95,14 @@ interface.
 | `GET /api/city?date=` | All 12 zones for one day, ranked |
 | `GET /api/basemap/{dark\|light\|voyager}/{z}/{x}/{y}.png` | CARTO map tiles, fetched and cached by the server |
 
-**Map:** CARTO basemaps (Dark, Light, Streets). The server fetches the tiles, so an optional
-`CARTO_API_KEY` in `app/.env` stays out of the browser and the repo; see `app/.env.example`. Without
-internet, the map falls back to a plain background and still shows every zone. The interface's compiled build is committed in `app/web/out/`, so you need **Python only**.
+**Map:** CARTO basemaps (Dark, Light, Streets). The server fetches the tiles, so the key never reaches
+the browser or the repo. Put it in `app/.env` as `CARTO_API_KEY=...` locally (template:
+`app/.env.example`), or in Vercel's environment variables. If CARTO rejects the key, the server retries
+without it, because the public basemaps are free. Without internet, the map shows a plain background
+and still shows every zone. If `/api/basemap/...` answers with the header `X-Basemap: offline`, the
+server cannot reach `basemaps.cartocdn.com`; allow that host on the network.
+
+The interface's compiled build is committed in `app/web/out/`, so you need **Python only**.
 To change the interface, run `npm install && npm run build` in `app/web/`. A simpler Streamlit fallback
 is in `app/streamlit_app.py`.
 

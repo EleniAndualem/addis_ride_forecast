@@ -18,13 +18,18 @@ export async function GET(_req: Request, { params }: { params: Promise<Params> }
     return Response.json({ detail: "Tile out of range." }, { status: 404 });
   }
   const key = process.env.CARTO_API_KEY?.trim();
-  const url = `https://${"abcd"[(x + y) % 4]}.basemaps.cartocdn.com/${STYLES[style]}/${z}/${x}/${y}@2x.png${key ? `?api_key=${encodeURIComponent(key)}` : ""}`;
+  const url = `https://${"abcd"[(x + y) % 4]}.basemaps.cartocdn.com/${STYLES[style]}/${z}/${x}/${y}@2x.png`;
+  // Try with the key first; if CARTO rejects the key, the public basemap still serves the tile without it.
+  const urls = key ? [`${url}?api_key=${encodeURIComponent(key)}`, url] : [url];
   try {
-    const r = await fetch(url, { headers: { "User-Agent": "addis-ride-demand/1.0" }, signal: AbortSignal.timeout(8000) });
-    if (!r.ok) throw new Error(`CARTO ${r.status}`);
-    return new Response(await r.arrayBuffer(), {
-      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400, s-maxage=604800" },
-    });
+    for (const u of urls) {
+      const r = await fetch(u, { headers: { "User-Agent": "addis-ride-demand/1.0" }, signal: AbortSignal.timeout(8000) });
+      if (!r.ok) continue;
+      return new Response(await r.arrayBuffer(), {
+        headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400, s-maxage=604800" },
+      });
+    }
+    throw new Error("CARTO unavailable");
   } catch {
     return new Response(EMPTY, { headers: { "Content-Type": "image/png", "Cache-Control": "no-store", "X-Basemap": "offline" } });
   }

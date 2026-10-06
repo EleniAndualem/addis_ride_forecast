@@ -14,7 +14,7 @@ export type Basemap = { tiles: string; styles: string[]; default: string; attrib
 export type Meta = {
   basemap: Basemap;
   team: string;
-  model: { name: string; n_features: number; trained_on: string; rmse: number; mae: number; rolling_rmse: number; baseline_rmse: number };
+  model: { name: string; n_features: number; trained_on: string; rmse: number; mae: number; rolling_rmse: number; rolling_rmse_sd: number; n_train: number; baseline_rmse: number };
   trips_per_driver_hour: number;
   first_day: string;
   last_day: string;

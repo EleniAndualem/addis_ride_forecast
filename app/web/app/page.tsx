@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, fmt, type City, type Forecast, type Meta } from "@/lib/api";
 import { DriverChart, ForecastChart, Spark } from "@/components/charts";
+import Sidebar from "@/components/sidebar";
 
 const ZoneMap = dynamic(() => import("@/components/zone-map"), {
   ssr: false,
@@ -28,6 +29,8 @@ export default function Page() {
   const [notice, setNotice] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [showTable, setShowTable] = useState(false);
+  const [sidebar, setSidebar] = useState(false);
+  const closeSidebar = useCallback(() => setSidebar(false), []);
 
   // Initial load: metadata, then zone/date from the URL (?zone=Bole&date=2025-11-05) if valid.
   useEffect(() => {
@@ -95,6 +98,13 @@ export default function Page() {
       {/* ── Top bar ─────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/70 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1440px] items-center gap-4 px-5 py-3.5 md:px-8">
+          <button onClick={() => setSidebar(true)} aria-label="Open project overview" aria-expanded={sidebar}
+                  className="group flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 text-slate-300 transition hover:border-accent/40 hover:bg-accent/10 hover:text-white">
+            <span className="flex flex-col gap-[3px]" aria-hidden>
+              <span className="block h-[2px] w-4 rounded bg-current" /><span className="block h-[2px] w-3 rounded bg-current" /><span className="block h-[2px] w-4 rounded bg-current" />
+            </span>
+            <span className="hidden text-[12.5px] font-semibold sm:inline">Project</span>
+          </button>
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-accent to-[#ff4d6d] text-lg shadow-lg shadow-accent/30">🚕</div>
           <div className="leading-tight">
             <div className="text-[15px] font-bold tracking-tight text-white">Addis Ride Demand</div>
@@ -109,6 +119,7 @@ export default function Page() {
           </div>
         </div>
       </header>
+      <Sidebar open={sidebar} onClose={closeSidebar} meta={meta} />
 
       <div className="mx-auto max-w-[1440px] space-y-5 px-5 py-6 md:px-8">
         {notice && (
