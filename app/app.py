@@ -11,6 +11,12 @@ looked up here. Nothing is cleaned, joined or fitted at request time.
 """
 from __future__ import annotations
 
+import base64
+import os
+import threading
+import urllib.error
+import urllib.request
+from collections import OrderedDict
 from pathlib import Path
 
 import joblib
@@ -18,7 +24,7 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 HERE = Path(__file__).parent
@@ -41,6 +47,30 @@ EVENT_LABELS = {"football_match": "Football match", "concert": "Concert", "confe
                 "public_holiday": "Public holiday", "school_break": "School break"}
 EVENT_ICONS = {"football_match": "⚽", "concert": "🎵", "conference": "🎤", "exhibition": "🖼️",
                "road_closure": "🚧", "sports_run": "🏃", "public_holiday": "🎉", "school_break": "🎒"}
+
+# ----------------------------------------------------------------------------------------------------
+# Basemap (CARTO). Tiles are fetched by this server, so the browser only ever talks to localhost and an
+# API key, if you have one, never reaches the front end or the repository. Put it in app/.env:
+#     CARTO_API_KEY=your-key
+# (app/.env is git-ignored). CARTO's public basemaps also work without a key.
+# ----------------------------------------------------------------------------------------------------
+def _load_dotenv(path: Path) -> None:
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            key, sep, value = line.strip().partition("=")
+            if sep and key and not key.startswith("#"):
+                os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+_load_dotenv(HERE / ".env")
+CARTO_API_KEY = os.environ.get("CARTO_API_KEY", "").strip()
+CARTO_STYLES = {"dark": "dark_all", "light": "light_all", "voyager": "rastertiles/voyager"}
+CARTO_ATTRIBUTION = "© OpenStreetMap contributors © CARTO"
+# 1x1 transparent PNG, returned when a tile cannot be fetched (offline demo) so the map never errors.
+EMPTY_TILE = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABpfZFQAAAAABJRU5ErkJggg==")
+_TILE_CACHE: OrderedDict[tuple, bytes] = OrderedDict()
+_TILE_LOCK = threading.Lock()
+TILE_CACHE_SIZE = 3000
 
 # ----------------------------------------------------------------------------------------------------
 # Load once
@@ -94,7 +124,44 @@ def zone_events(zone: str, day: pd.Timestamp) -> pd.DataFrame:
 # API
 # ----------------------------------------------------------------------------------------------------
 app = FastAPI(title="Addis Ride Demand Forecast", version="1.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["GET"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+                   allow_methods=["GET"], allow_headers=["*"])
+
+
+@app.get("/api/health")
+def health():
+    """Liveness check used by the front end and for a quick smoke test."""
+    return {"status": "ok", "model": "LightGBM (Poisson)", "rows_scored": int(len(TEST)), "zones": len(ZONES),
+            "first_day": f"{FIRST_DAY:%Y-%m-%d}", "last_day": f"{LAST_DAY:%Y-%m-%d}",
+            "basemap": {"provider": "CARTO", "api_key_configured": bool(CARTO_API_KEY)}}
+
+
+@app.get("/api/basemap/{style}/{z}/{x}/{y}.png")
+def basemap_tile(style: str, z: int, x: int, y: int):
+    """CARTO raster tile, fetched and cached by the server. Falls back to a transparent tile offline."""
+    if style not in CARTO_STYLES:
+        raise HTTPException(404, f"Unknown basemap style '{style}'. Use one of: {', '.join(CARTO_STYLES)}.")
+    if not (0 <= z <= 20 and 0 <= x < 2 ** z and 0 <= y < 2 ** z):
+        raise HTTPException(404, "Tile out of range.")
+    key = (style, z, x, y)
+    with _TILE_LOCK:
+        if key in _TILE_CACHE:
+            _TILE_CACHE.move_to_end(key)
+            return Response(_TILE_CACHE[key], media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
+    url = f"https://{'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/{CARTO_STYLES[style]}/{z}/{x}/{y}@2x.png"
+    if CARTO_API_KEY:
+        url += f"?api_key={CARTO_API_KEY}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "addis-ride-demand/1.0"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = r.read()
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return Response(EMPTY_TILE, media_type="image/png", headers={"Cache-Control": "no-store", "X-Basemap": "offline"})
+    with _TILE_LOCK:
+        _TILE_CACHE[key] = data
+        while len(_TILE_CACHE) > TILE_CACHE_SIZE:
+            _TILE_CACHE.popitem(last=False)
+    return Response(data, media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/api/meta")
@@ -107,6 +174,8 @@ def meta():
                   "rolling_rmse": round(float(v["rolling_rmse_mean"]), 2),
                   "baseline_rmse": round(float(v["seasonal_naive_rmse"]), 2)},
         "trips_per_driver_hour": TRIPS_PER_DRIVER_HOUR,
+        "basemap": {"tiles": "/api/basemap/{style}/{z}/{x}/{y}.png", "styles": list(CARTO_STYLES),
+                    "default": "dark", "attribution": CARTO_ATTRIBUTION},
         "first_day": f"{FIRST_DAY:%Y-%m-%d}", "last_day": f"{LAST_DAY:%Y-%m-%d}",
         "dates": [f"{d:%Y-%m-%d}" for d in pd.date_range(FIRST_DAY, LAST_DAY)],
         "zones": [{"zone": z, "type": ZONE_TYPE[z], "type_label": ZONE_TYPE_LABELS.get(ZONE_TYPE[z], ZONE_TYPE[z]),
@@ -202,7 +271,7 @@ else:
     @app.get("/")
     def missing_frontend():
         return {"message": "Front end not built. Run `npm install && npm run build` in app/web, "
-                           "or use the API at /api/meta, /api/city, /api/forecast."}
+                           "or use the API at /api/health, /api/meta, /api/city, /api/forecast."}
 
 
 if __name__ == "__main__":

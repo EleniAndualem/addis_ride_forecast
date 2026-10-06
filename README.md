@@ -83,7 +83,19 @@ hosted URL; the demo runs live from a laptop.
 - **Deep link:** `http://localhost:8000/?zone=Kazanchis&date=2025-11-09` opens that zone and day.
 
 The app is a FastAPI service (`app/app.py`) that serves the model through a JSON API and a Next.js
-interface. The interface's compiled build is committed in `app/web/out/`, so you need **Python only**.
+interface.
+
+| Route | Returns |
+|---|---|
+| `GET /api/health` | Status, rows scored, whether a CARTO key is set |
+| `GET /api/meta` | Model scores, zones with coordinates, dates, basemap styles |
+| `GET /api/forecast?zone=&date=` | 24-hour forecast with ranges, drivers, fares, weather and events |
+| `GET /api/city?date=` | All 12 zones for one day, ranked |
+| `GET /api/basemap/{dark\|light\|voyager}/{z}/{x}/{y}.png` | CARTO map tiles, fetched and cached by the server |
+
+**Map:** CARTO basemaps (Dark, Light, Streets). The server fetches the tiles, so an optional
+`CARTO_API_KEY` in `app/.env` stays out of the browser and the repo; see `app/.env.example`. Without
+internet, the map falls back to a plain background and still shows every zone. The interface's compiled build is committed in `app/web/out/`, so you need **Python only**.
 To change the interface, run `npm install && npm run build` in `app/web/`. A simpler Streamlit fallback
 is in `app/streamlit_app.py`.
 

@@ -1,32 +1,38 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Map, { Marker, NavigationControl } from "react-map-gl/maplibre";
 import type { StyleSpecification } from "maplibre-gl";
 import type { CityZone, Zone } from "@/lib/api";
-import { fmt } from "@/lib/api";
+import { BASE, fmt } from "@/lib/api";
 
-// Dark raster basemap (CARTO). If the tiles can't load (offline demo), the dark background and the zone
-// markers still render, so the map never breaks the app.
-const STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    carto: {
-      type: "raster",
-      tiles: [
-        "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-        "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-        "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-      ],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors © CARTO",
+// CARTO raster basemap, served through the Python API (/api/basemap/...), which fetches and caches the
+// tiles and keeps any CARTO key on the server. Offline, the API returns blank tiles and the dark background
+// and zone bubbles still render, so the map never breaks the demo.
+export type MapStyle = "dark" | "light" | "voyager";
+export const MAP_STYLES: { id: MapStyle; label: string }[] = [
+  { id: "dark", label: "Dark" }, { id: "light", label: "Light" }, { id: "voyager", label: "Streets" },
+];
+function cartoStyle(style: MapStyle): StyleSpecification {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const root = BASE.startsWith("http") ? BASE : `${origin}${BASE}`;
+  return {
+    version: 8,
+    sources: {
+      carto: {
+        type: "raster",
+        tiles: [`${root}/api/basemap/${style}/{z}/{x}/{y}.png`],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution: "© OpenStreetMap contributors © CARTO",
+      },
     },
-  },
-  layers: [
-    { id: "bg", type: "background", paint: { "background-color": "#0b111e" } },
-    { id: "carto", type: "raster", source: "carto", paint: { "raster-opacity": 0.95 } },
-  ],
-};
+    layers: [
+      { id: "bg", type: "background", paint: { "background-color": style === "dark" ? "#0b111e" : "#e9edf2" } },
+      { id: "carto", type: "raster", source: "carto", paint: { "raster-opacity": style === "dark" ? 0.95 : 0.9 } },
+    ],
+  };
+}
 
 // Blue → violet → orange, by share of the busiest zone at this hour.
 function heat(t: number, alpha = 1) {
@@ -63,13 +69,15 @@ type Props = {
 
 export default function ZoneMap({ zones, city, hour, selected, onSelect }: Props) {
   const byZone = useMemo(() => Object.fromEntries((city ?? []).map((c) => [c.zone, c])), [city]);
+  const [mapStyle, setMapStyle] = useState<MapStyle>("dark");
+  const style = useMemo(() => cartoStyle(mapStyle), [mapStyle]);
   const narrow = typeof window !== "undefined" && window.innerWidth < 640;
   const max = useMemo(() => Math.max(1, ...(city ?? []).map((c) => c.hourly[hour] ?? 0)), [city, hour]);
 
   return (
     <Map
       initialViewState={{ bounds: [[38.69, 8.988], [38.89, 9.043]], fitBoundsOptions: { padding: narrow ? { top: 100, bottom: 110, left: 12, right: 12 } : { top: 110, bottom: 120, left: 50, right: 50 } } }}
-      mapStyle={STYLE}
+      mapStyle={style}
       style={{ width: "100%", height: "100%" }}
       attributionControl={{ compact: true }}
       dragRotate={false}
@@ -77,6 +85,14 @@ export default function ZoneMap({ zones, city, hour, selected, onSelect }: Props
       minZoom={10}
     >
       <NavigationControl position="top-right" showCompass={false} />
+      <div className="absolute right-12 top-2.5 z-10 flex gap-1 rounded-xl bg-ink-950/80 p-1 text-[11px] font-semibold backdrop-blur ring-1 ring-white/10">
+        {MAP_STYLES.map((m) => (
+          <button key={m.id} onClick={() => setMapStyle(m.id)} aria-pressed={mapStyle === m.id}
+                  className={`rounded-lg px-2.5 py-1 transition ${mapStyle === m.id ? "bg-accent text-white" : "text-slate-300 hover:bg-white/10"}`}>
+            {m.label}
+          </button>
+        ))}
+      </div>
       {zones.map((z) => {
         const c = byZone[z.zone];
         const v = c?.hourly[hour] ?? 0;

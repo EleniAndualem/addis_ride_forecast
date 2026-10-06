@@ -1,11 +1,13 @@
 // Typed client for the FastAPI server in app/app.py. In production the server also serves this app, so
 // requests are same-origin. Under `npm run dev` (port 3000) they go to the Python API on port 8000.
-const BASE =
+export const BASE =
   process.env.NEXT_PUBLIC_API_BASE ??
   (typeof window !== "undefined" && window.location.port === "3000" ? "http://localhost:8000" : "");
 
 export type Zone = { zone: string; type: string; type_label: string; lat: number; lon: number; fare: number };
+export type Basemap = { tiles: string; styles: string[]; default: string; attribution: string };
 export type Meta = {
+  basemap: Basemap;
   team: string;
   model: { name: string; n_features: number; trained_on: string; rmse: number; mae: number; rolling_rmse: number; baseline_rmse: number };
   trips_per_driver_hour: number;
