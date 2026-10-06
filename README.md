@@ -97,11 +97,10 @@ interface.
 | `GET /api/city?date=` | All 12 zones for one day, ranked |
 | `GET /api/basemap/{dark\|light\|voyager}/{z}/{x}/{y}.png` | CARTO map tiles, fetched and cached by the server |
 
-**Map:** CARTO basemaps (Dark, Light, Streets). CARTO's basemap tiles are public and need no key. The
-server fetches and caches them; an optional `CARTO_API_KEY` (in `app/.env` locally, or Vercel's environment
-variables) is sent along but never reaches the browser or the repo. If the server cannot reach CARTO, the
-browser loads the public tiles directly. With no internet at all, the map shows a plain background and
-still shows every zone.
+**Map:** CARTO basemaps (Dark, Light, Streets). The browser loads CARTO's public tiles directly. They need
+no API key, so the map works the same locally and on Vercel. `/api/basemap/...` remains as an optional
+server-side tile proxy that uses `CARTO_API_KEY` if one is set. With no internet, the map shows a plain
+background and still shows every zone.
 
 The interface's compiled build is committed in `app/web/out/`, so you need **Python only**.
 To change the interface, run `npm install && npm run build` in `app/web/`. A simpler Streamlit fallback
@@ -122,7 +121,7 @@ of on each request. The forecast inputs for 1–14 November are fixed, so the an
 
    | Name | Value | Needed? |
    |---|---|---|
-   | `CARTO_API_KEY` | your CARTO key | Optional: used only by the server-side `/api/basemap` tile route |
+   | `CARTO_API_KEY` | your CARTO key | Optional: only the `/api/basemap` proxy uses it; the map itself needs no key |
    | `NEXT_PUBLIC_API_BASE` | URL of a hosted FastAPI server | Leave empty to use the built-in `/api` routes |
 
 4. Click **Deploy**, then check `https://<your-app>.vercel.app/api/health`.
